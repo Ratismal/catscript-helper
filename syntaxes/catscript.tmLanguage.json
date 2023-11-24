@@ -1,0 +1,185 @@
+{
+	"$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+	"name": "CatScript",
+	"patterns": [
+		{
+			"include": "#meta"
+		},
+		{
+			"include": "#comment"
+		},
+		{
+			"match": "\\n",
+			"name": "meta.ending-space"
+		},
+		{
+			"include": "#commands"
+		},
+		{
+			"include": "#content"
+		}
+	],
+	"repository": {
+		"comment": {
+			"patterns": [
+				{
+					"name": "comment.line.double-dash.catscript",
+					"match": "// .+$"
+				}
+			]
+		},
+		"meta": {
+			"patterns": [
+				{
+					"name": "comment.block.documentation.catscript",
+					"match": "^/// (.+): *(.+)$",
+					"captures": {
+						"1": {
+							"name": "keyword.operator.catscript"
+						},
+						"2": {
+							"name": "storage.type.catscript"
+						}
+					}
+				}
+			]
+		},
+		"commands": {
+			"patterns": [
+				{
+					"match": "^(SET)\\s+([A-z_\\-]+)\\s+(.+)",
+					"captures": {
+						"1": {
+							"name": "keyword.operator.catscript"
+						},
+						"2": {
+							"name": "constant.character.variable.catscript"
+						},
+						"3": {
+							"name": "meta.content.catscript",
+							"patterns": [
+								{
+									"include": "#content"
+								}
+							]
+						}
+					}
+				},
+				{
+					"match": "^(SET)\\s+([A-z_\\-]+)",
+					"captures": {
+						"1": {
+							"name": "keyword.operator.catscript"
+						},
+						"2": {
+							"name": "constant.character.variable.catscript"
+						}
+					}
+				},
+				{
+					"name": "entity.command.catscript",
+					"match": "^([A-Z_]+)$",
+					"captures": {
+						"1": {
+							"patterns": [
+								{
+									"include": "#keywords"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "entity.command.catscript",
+					"match": "^([A-Z_]+) +(.+)$",
+					"captures": {
+						"1": {
+							"patterns": [
+								{
+									"include": "#keywords"
+								}
+							]
+						},
+						"2": {
+							"name": "meta.content.catscript",
+							"patterns": [
+								{
+									"include": "#content"
+								}
+							]
+						}
+					}
+				}
+			]
+		},
+		"keywords": {
+			"patterns": [
+				{
+					"name": "keyword.control.catscript",
+					"match": "^(GOTO|GOTO_IF|GOTO_SWITCH|LABEL)\\b"
+				},
+				{
+					"name": "keyword.operator.catscript",
+					"match": "^(POP|PUSH|STRING|NUMBER|BOOL|EQ|NOT|ADD|SUBTRACT|INC|DEC|MULTIPLY|DIVIDE|GT|GTE|LT|LTE|AND|OR|XOR)\\b"
+				},
+				{
+					"name": "support.function.catscript",
+					"match": "^([A-Z_]+)\\b"
+				}
+			]
+		},
+		"content": {
+			"patterns": [
+				{
+					"name": "constant.numeric",
+					"match": "\\b(-?\\d*\\.?\\d+)\\b"
+				},
+				{
+					"include": "#variableSubstitution"
+				},
+				{
+					"include": "#strings"
+				},
+				{
+					"name": "constant.language",
+					"match": "\\b(true|false|undefined)\\b"
+				},
+				{
+					"name": "constant.character.escape.catscript",
+					"match": "\\\\."
+				}
+			]
+		},
+		"strings": {
+			"name": "string.quoted.double.catscript",
+			"begin": "\"",
+			"end": "\"",
+			"patterns": [
+				{
+					"name": "constant.character.escape.catscript",
+					"match": "\\\\."
+				},
+				{
+					"include": "#variableSubstitution"
+				}
+			]
+		},
+		"variableSubstitution": {
+			"name": "meta.variable.catscript",
+			"patterns": [
+				{
+					"match": "(@)([A-z0-9_\\-]+)",
+					"captures": {
+						"1": {
+							"name": "constant.character.escape.catscript"
+						},
+						"2": {
+							"name": "constant.character.variable.catscript"
+						}
+					}
+				}
+			]
+		}
+	},
+	"scopeName": "source.cat"
+}

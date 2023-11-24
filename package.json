@@ -1,0 +1,32 @@
+{
+  "name": "catscript-helper",
+  "displayName": "CatScript Helper",
+  "description": "Syntax highlighting for the CatScript language.",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.81.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "main": "extension.js",
+  "contributes": {
+    "languages": [{
+      "id": "catscript",
+      "aliases": ["CatScript", "catscript"],
+      "extensions": [".cat"],
+      "configuration": "./language-configuration.json"
+    }],
+    "grammars": [{
+      "language": "catscript",
+      "scopeName": "source.cat",
+      "path": "./syntaxes/catscript.tmLanguage.json"
+    }],
+    "commands": [
+      {
+        "command": "catscript-helper.parseGameMaker",
+        "title": "CatScript: Parse GameMaker Runner"
+      }
+    ]
+  }
+}
