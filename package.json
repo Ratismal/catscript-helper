@@ -9,6 +9,8 @@
   "categories": [
     "Programming Languages"
   ],
+  "author": "stupid cat",
+  "repository": "https://github.com/Ratismal/catscript-helper",
   "main": "extension.js",
   "contributes": {
     "languages": [{
