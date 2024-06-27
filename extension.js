@@ -141,14 +141,10 @@ function getCompletionCommands(runner, scopeName, full = false) {
 vscode.languages.registerCompletionItemProvider('catscript', {
   async provideCompletionItems(document, position, token, context) {
     const start = document.getText(new vscode.Range(position.with(position.line, 0), position.translate(0, -1)));
-    console.log(start);
     if (/((^|\s)[A-Z_.]+)\s/.test(start)) {
       return [];
     }
 
-
-
-    console.log(document, position, token, context, context.triggerCharacter);
     const runnerKey = findRunner(document);
     await parseSchema(runnerKey);
     const runner = runners[runnerKey];
@@ -157,7 +153,6 @@ vscode.languages.registerCompletionItemProvider('catscript', {
 
     if (context.triggerCharacter === '.') {
       const wordRange = document.getWordRangeAtPosition(position.translate(0, -2));
-      console.log(position, position.translate(0, -2), wordRange);
       const word = document.getText(wordRange);
 
       items = getCompletionCommands(runner, word);
@@ -166,8 +161,6 @@ vscode.languages.registerCompletionItemProvider('catscript', {
       let commands = [];
       for (const key of Object.keys(runner.scopes)) {
         if (runner.scopes.hasOwnProperty(key)) {
-          const scope = runner.scopes[key];
-          
           const item = new vscode.CompletionItem(key, vscode.CompletionItemKind.Module);
           items.push(item);
 
@@ -179,33 +172,5 @@ vscode.languages.registerCompletionItemProvider('catscript', {
     }
 
     return items;
-
-
-
-
-    // for (const key of Object.keys(runner.scopes)) {
-    //   if (runner.scopes.hasOwnProperty(key)) {
-    //     const scope = runner.scopes[key];
-        
-    //     // const item = new vscode.CompletionItem(key, vscode.CompletionItemKind.Module);
-    //     // items.push(item);
-
-    //     for (const commandKey of Object.keys(scope)) {
-    //       if (scope.hasOwnProperty(commandKey)) {
-    //         const command = scope[commandKey];
-
-    //         const item = new vscode.CompletionItem(command.command, vscode.CompletionItemKind.Function);
-    //         item.label = key + '.' + command.command;
-    //         item.insertText = command.command;
-    //         item.documentation = getCommandDescriptor(runnerKey, command.scope, command.command);
-    
-    //         items.push(item);
-    //       }
-    //     }
-    //   }
-    // }
-
-    // console.log(items);
-
   }
 }, '.');

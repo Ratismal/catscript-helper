@@ -2,13 +2,14 @@
   "name": "catscript-helper",
   "displayName": "CatScript Helper",
   "description": "Syntax highlighting for the CatScript language.",
-  "version": "0.0.1",
+  "version": "1.0.1",
   "engines": {
     "vscode": "^1.81.0"
   },
   "categories": [
     "Programming Languages"
   ],
+  "publisher": "ratismal",
   "author": "stupid cat",
   "repository": "https://github.com/Ratismal/catscript-helper",
   "main": "extension.js",
