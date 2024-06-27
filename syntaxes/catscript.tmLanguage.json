@@ -14,9 +14,6 @@
 		},
 		{
 			"include": "#commands"
-		},
-		{
-			"include": "#content"
 		}
 	],
 	"repository": {
@@ -47,7 +44,7 @@
 		"commands": {
 			"patterns": [
 				{
-					"match": "^(SET)\\s+([A-z_\\-]+)\\s+(.+)",
+					"match": "^(SET)\\!?\\s+([A-z_\\-]+)(?:\\s+|$)(.*)$",
 					"captures": {
 						"1": {
 							"name": "keyword.operator.catscript"
@@ -66,41 +63,24 @@
 					}
 				},
 				{
-					"match": "^(SET)\\s+([A-z_\\-]+)",
-					"captures": {
-						"1": {
-							"name": "keyword.operator.catscript"
-						},
-						"2": {
-							"name": "constant.character.variable.catscript"
-						}
-					}
-				},
-				{
 					"name": "entity.command.catscript",
-					"match": "^([A-Z_]+)$",
+					"match": "^(@[A-z0-9_\\-]+:\\s+)?([A-Z_.]+)\\!?(?: +|$)(.*)$",
 					"captures": {
 						"1": {
 							"patterns": [
 								{
-									"include": "#keywords"
+									"include": "#variableSubstitution"
 								}
 							]
-						}
-					}
-				},
-				{
-					"name": "entity.command.catscript",
-					"match": "^([A-Z_]+) +(.+)$",
-					"captures": {
-						"1": {
+						},
+						"2": {
 							"patterns": [
 								{
 									"include": "#keywords"
 								}
 							]
 						},
-						"2": {
+						"3": {
 							"name": "meta.content.catscript",
 							"patterns": [
 								{
@@ -123,8 +103,15 @@
 					"match": "^(POP|PUSH|STRING|NUMBER|BOOL|EQ|NOT|ADD|SUBTRACT|INC|DEC|MULTIPLY|DIVIDE|GT|GTE|LT|LTE|AND|OR|XOR)\\b"
 				},
 				{
-					"name": "support.function.catscript",
-					"match": "^([A-Z_]+)\\b"
+					"match": "([A-Z_]+)(?:\\.([A-Z_]+))?\\!?\\b",
+					"captures": {
+						"1": {
+							"name": "support.function.catscript"
+						},
+						"2": {
+							"name": "support.function.catscript"
+						}
+					}
 				}
 			]
 		},

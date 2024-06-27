@@ -4,11 +4,10 @@ const path = require('path');
 let runners = {};
 
 class Runner {
-  constructor(name, parent, commands) {
+  constructor(name, scopes) {
     this.name = name;
-    this.parent = parent;
 
-    this.commands = commands;
+    this.scopes = scopes;
   }
 }
 
@@ -23,21 +22,9 @@ async function parseSchema(runnerName) {
 
       const obj = JSON.parse(text);
 
-      let commands = obj.commands;
-      if (obj.extends) {
-        await parseSchema(obj.extends);
+      let scopes = obj.scopes;
 
-        const extended = runners[obj.extends];
-        commands = extended.commands;
-
-        for (const key of Object.keys(obj.commands)) {
-          if (obj.commands.hasOwnProperty(key)) {
-            commands[key] = obj.commands[key];
-          }
-        }
-      }
-
-      runners[runnerName] = new Runner(runnerName, obj.extends, commands);
+      runners[runnerName] = new Runner(runnerName, scopes);
     }
 
     console.log(runners);
@@ -64,35 +51,57 @@ vscode.languages.registerHoverProvider('catscript', {
 
     const runner = runners[runnerKey];
 
-    const range = document.getWordRangeAtPosition(position);
-    const word = document.getText(range).toUpperCase();
-    console.log(word, range.start.character);
-    
-    if (range.start.character === 0) {
-      const command = runner.commands[word];
+    const line = document.lineAt(position);
 
-      const res = getCommandDescriptor(runnerKey, word);
-      console.log(res);
+    const matches = line.text.match(/^(@[A-z0-9_\-]+:\s+)?([A-Z_.]+)\!?/);
 
-      if (command) {
-        return new vscode.Hover(res);
+    if (matches === null) {
+      return;
+    }
+
+    if (position.character < matches[0].length) {
+      const parts = matches[2].split('.');
+      
+      if (parts.length === 0) {
+        return;
+      }
+      if (parts.length === 1) {
+        parts.unshift('BASE');
+      }
+
+      const scope = runner.scopes[parts[0]];
+      if (scope) {
+        const command = scope[parts[1]];
+
+        if (command) {
+          const res = getCommandDescriptor(runnerKey, parts[0], parts[1]);
+
+          return new vscode.Hover(res);
+        }
       }
     }
   }
 });
 
-function getCommandDescriptor(runnerKey, commandName) {
+function getCommandDescriptor(runnerKey, scopeName, commandName) {
   const runner = runners[runnerKey];
-  const command = runner.commands[commandName.toUpperCase()];
+  const scope = runner.scopes[scopeName] ?? {};
+  const command = scope[commandName.toUpperCase()];
   if (command) {
     let title = [command.command];
-
-    for (let i = 0; i < command.args.length; i++) {
-      title.push(`@${command.argLabels[i]}:${command.args[i]}`);
+    if (scopeName !== 'BASE') {
+      title[0] = `${scopeName}.${title[0]}`;
     }
 
+    for (const arg of command.args) {
+      title.push(`@${arg.name}:${arg.optional ? '!' : ''}${arg.type}`)
+    }
+    // for (let i = 0; i < command.args.length; i++) {
+    //   title.push(`@${command.argLabels[i]}:${command.args[i]}`);
+    // }
+
     let string = new vscode.MarkdownString().appendCodeblock(title.join(' '), "catscript")
-    if (command.output) {
+    if (command.output.length > 0) {
       string = string.appendCodeblock('-> ' + command.output.join(', '));
     }
     string = string.appendMarkdown(command.desc);
@@ -101,146 +110,102 @@ function getCommandDescriptor(runnerKey, commandName) {
   }
 }
 
-vscode.languages.registerCompletionItemProvider('catscript', {
-  async provideCompletionItems(document, position, token, context) {
-    // console.log(document, position, token, context);
-    const runnerKey = findRunner(document);
-    await parseSchema(runnerKey);
+function getCompletionCommands(runner, scopeName, full = false) {
+  const items = [];
 
-    const runner = runners[runnerKey];
+  if (runner.scopes.hasOwnProperty(scopeName)) {
+    const scope = runner.scopes[scopeName];
 
-    const items = [];
+    for (const commandKey of Object.keys(scope)) {
+      if (scope.hasOwnProperty(commandKey)) {
+        const command = scope[commandKey];
 
-    for (const key of Object.keys(runner.commands)) {
-      if (runner.commands.hasOwnProperty(key)) {
-        const command = runner.commands[key];
-
-        const item = new vscode.CompletionItem(command.command);
-        item.documentation = getCommandDescriptor(runnerKey, command.command);
+        const item = new vscode.CompletionItem(command.scope + '.' + command.command, vscode.CompletionItemKind.Function);
+        if (full && scopeName === 'BASE') {
+          item.label = command.command;
+        }
+        if (!full) {
+          item.insertText = command.command;
+          item.sortText = command.command;
+        }
+        item.documentation = getCommandDescriptor(runner.name, command.scope, command.command);
 
         items.push(item);
       }
     }
-
-    return items;
   }
-});
 
-vscode.commands.registerCommand('catscript-helper.parseGameMaker', async (args) => {
-  runners = {};
+  return items;
+}
 
-  const files = await vscode.workspace.findFiles("**/*script_runner*.yy");
-  if (files.length === 0) return;
-
-  const parsedRunners = {};
-
-  async function parseGamemakerRunner(file) {
-    const document = await vscode.workspace.openTextDocument(file);
-    const manifestContent = document.getText()
-      .replace(/,\s*([\]\}])/gm, '$1');
-    const obj = JSON.parse(manifestContent);
-
-    if (parsedRunners[obj.name]) {
-      return;
+vscode.languages.registerCompletionItemProvider('catscript', {
+  async provideCompletionItems(document, position, token, context) {
+    const start = document.getText(new vscode.Range(position.with(position.line, 0), position.translate(0, -1)));
+    console.log(start);
+    if (/((^|\s)[A-Z_.]+)\s/.test(start)) {
+      return [];
     }
 
-    let extendsName = undefined;
 
-    if (obj.parentObjectId) {
-      extendsName = obj.parentObjectId.name;
-    }
 
-    const document2 = await vscode.workspace.openTextDocument(path.join(file.path, '..', 'Create_0.gml'));
-    const content = document2.getText();
-    const lines = content.replace(/\r/g, '').split('\n');
+    console.log(document, position, token, context, context.triggerCharacter);
+    const runnerKey = findRunner(document);
+    await parseSchema(runnerKey);
+    const runner = runners[runnerKey];
+    let items = [];
 
-    const commands = {};
-    let command = {};
-    for (const line of lines) {
-      if (line !== '' && !line.startsWith('///')) {
-        command = {};
-        continue;
-      }
 
-      if (line.startsWith('///')) {
-        const parts = line.substring(3).trim().split(' ');
-        switch (parts[0].toLowerCase()) {
-          case '@func':
-          case '@function':
-          case '@method':
-            command = {
-              command: parts[1],
-              desc: '',
-              args: [],
-              argLabels: [],
-              output: []
-            };
-            break;
-          case '@ignore':
-            commands[command.command] = command;
-            break;
-          case '@description':
-          case '@desc':
-            for (let i = 1; i < parts.length; i++) {
-              if (parts[i] != '') {
-                const desc = parts.slice(i).join(' ').trim();
-                command.desc += (command.desc === '' ? '' : '\n\n') + desc;
-                break;
-              }
-            }
-            break;
-          case '@arg':
-          case '@argument':
-          case '@param':
-          case '@parameter':
-            let i = 1;
-            let type = 'any';
-            let label = 'value';
-            for (; i < parts.length; i++) {
-              if (parts[i] != '') {
-                type = parts[i];
-                break;
-              }
-            }
-            for (i++; i < parts.length; i++) {
-              if (parts[i] != '') {
-                label = parts[i];
-                break;
-              }
-            }
-            command.args.push(type);
-            command.argLabels.push(label);
-            break;
-          case '@return':
-          case '@returns':
-            for (let i = 1; i < parts.length; i++) {
-              if (parts[i] != '') {
-                command.output.push(parts[i]);
-              }
-            }
-            break;
+    if (context.triggerCharacter === '.') {
+      const wordRange = document.getWordRangeAtPosition(position.translate(0, -2));
+      console.log(position, position.translate(0, -2), wordRange);
+      const word = document.getText(wordRange);
+
+      items = getCompletionCommands(runner, word);
+
+    } else {
+      let commands = [];
+      for (const key of Object.keys(runner.scopes)) {
+        if (runner.scopes.hasOwnProperty(key)) {
+          const scope = runner.scopes[key];
+          
+          const item = new vscode.CompletionItem(key, vscode.CompletionItemKind.Module);
+          items.push(item);
+
+          commands = commands.concat(getCompletionCommands(runner, key, true));
         }
       }
+
+      items = items.concat(commands);
     }
 
-    const runner = {
-      extends: extendsName,
-      commands
-    };
+    return items;
 
-    const workspaceFolder = vscode.workspace.getWorkspaceFolder(file).uri;
-    const dir = vscode.Uri.joinPath(workspaceFolder, '.catscript', 'schemas');
-    await vscode.workspace.fs.createDirectory(dir);
-    const fileDir = vscode.Uri.joinPath(dir, obj.name + '.json');
-    await vscode.workspace.fs.writeFile(fileDir, new TextEncoder("utf-8").encode(JSON.stringify(runner, null, 2)));
-  }
 
-  for (const file of files) {
-    try {
-      await parseGamemakerRunner(file);
-    } catch (err) {
-      console.log('Failed to parse runner', file.path);
-      console.error(err);
-    }
+
+
+    // for (const key of Object.keys(runner.scopes)) {
+    //   if (runner.scopes.hasOwnProperty(key)) {
+    //     const scope = runner.scopes[key];
+        
+    //     // const item = new vscode.CompletionItem(key, vscode.CompletionItemKind.Module);
+    //     // items.push(item);
+
+    //     for (const commandKey of Object.keys(scope)) {
+    //       if (scope.hasOwnProperty(commandKey)) {
+    //         const command = scope[commandKey];
+
+    //         const item = new vscode.CompletionItem(command.command, vscode.CompletionItemKind.Function);
+    //         item.label = key + '.' + command.command;
+    //         item.insertText = command.command;
+    //         item.documentation = getCommandDescriptor(runnerKey, command.scope, command.command);
+    
+    //         items.push(item);
+    //       }
+    //     }
+    //   }
+    // }
+
+    // console.log(items);
+
   }
-});
+}, '.');
