@@ -4,34 +4,45 @@ const path = require('path');
 let runners = {};
 
 class Runner {
-  constructor(name, scopes) {
+  constructor(document, name) {
     this.name = name;
+    this.document = document;
+    this.scopes = {};
+  }
 
-    this.scopes = scopes;
+  parse() {
+    const text = this.document.getText();
+    const obj = JSON.parse(text);
+    this.scopes = obj.scopes;
   }
 }
 
 async function parseSchema(runnerName) {
-  if (runners[runnerName]) return;
+  if (runners[runnerName]) {
+    return;
+  }
 
   try {
     const files = await vscode.workspace.findFiles('**/.catscript/schemas/' + runnerName + '.json');
     if (files.length > 0) {
+      
       const document = await vscode.workspace.openTextDocument(files[0]);
-      const text = document.getText();
 
-      const obj = JSON.parse(text);
-
-      let scopes = obj.scopes;
-
-      runners[runnerName] = new Runner(runnerName, scopes);
+      const runner = runners[runnerName] = new Runner(document, runnerName);
+      runner.parse();
     }
-
-    console.log(runners);
+    // console.log(runners);
   } catch (err) {
     console.error(err);
   }
 }
+
+vscode.workspace.onDidChangeTextDocument(event => {
+  const runner = Object.values(runners).find(r => r.document === event.document);
+  if (runner) {
+    runner.parse();
+  }
+})
 
 function findRunner(document) {
   const text = document.getText();

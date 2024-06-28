@@ -1,6 +1,10 @@
 # Change Log
 
-## [1.1.0]
+## [1.0.1]
+
+- Add auto-reloading schemas
+
+## [1.0.1]
 
 - Migrate extension to new syntax
 
